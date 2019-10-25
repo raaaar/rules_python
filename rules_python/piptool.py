@@ -168,18 +168,21 @@ def main():
   whls = [Wheel(path) for path in list_whls()]
   possible_extras = determine_possible_extras(whls)
 
+  py_version = '' if sys.version_info[0] == 2 else '3'
+
   def whl_library(wheel):
     # Indentation here matters.  whl_library must be within the scope
     # of the function below.  We also avoid reimporting an existing WHL.
     return """
   if "{repo_name}" not in native.existing_rules():
-    whl_library(
+    whl{version}_library(
         name = "{repo_name}",
         whl = "@{name}//:{path}",
         requirements = "@{name}//:requirements.bzl",
         extras = [{extras}]
     )""".format(name=args.name, repo_name=wheel.repository_name(),
                 path=wheel.basename(),
+                version = py_version,
                 extras=','.join([
                   '"%s"' % extra
                   for extra in possible_extras.get(wheel, [])
@@ -203,7 +206,7 @@ def main():
 #
 # Generated from {input}
 
-load("@io_bazel_rules_python//python:whl.bzl", "whl_library")
+load("@io_bazel_rules_python//python:whl.bzl", "whl{version}_library")
 
 def pip_install():
   {whl_libraries}
@@ -219,7 +222,8 @@ def requirement(name):
   if name_key not in _requirements:
     fail("Could not find pip-provided dependency: '%s'" % name)
   return _requirements[name_key]
-""".format(input=args.input,
+""".format(input=args.input, 
+           version = py_version,
            whl_libraries='\n'.join(map(whl_library, whls)) if whls else "pass",
            mappings=whl_targets))
 
