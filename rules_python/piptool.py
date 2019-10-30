@@ -169,10 +169,14 @@ def main():
   possible_extras = determine_possible_extras(whls)
 
   py_version = '' if sys.version_info[0] == 2 else '3'
+  # this will help to avoid name collisions for packages 
+  # that have identical versions in py2 and py3 requirements.
+  py_prefix = 'py2_' if sys.version_info[0] == 2 else 'py3_'
 
   def whl_library(wheel):
     # Indentation here matters.  whl_library must be within the scope
     # of the function below.  We also avoid reimporting an existing WHL.
+    repo_name=py_prefix + wheel.repository_name()
     return """
   if "{repo_name}" not in native.existing_rules():
     whl{version}_library(
@@ -180,7 +184,8 @@ def main():
         whl = "@{name}//:{path}",
         requirements = "@{name}//:requirements.bzl",
         extras = [{extras}]
-    )""".format(name=args.name, repo_name=wheel.repository_name(),
+    )""".format(name=args.name, 
+                repo_name=repo_name,
                 path=wheel.basename(),
                 version = py_version,
                 extras=','.join([
@@ -190,11 +195,11 @@ def main():
 
   whl_targets = ','.join([
     ','.join([
-      '"%s": "@%s//:pkg"' % (whl.distribution().lower(), whl.repository_name())
+      '"%s": "@%s//:pkg"' % (whl.distribution().lower(), py_prefix + whl.repository_name())
     ] + [
       # For every extra that is possible from this requirements.txt
       '"%s[%s]": "@%s//:%s"' % (whl.distribution().lower(), extra.lower(),
-                                whl.repository_name(), extra)
+                                py_prefix + whl.repository_name(), extra)
       for extra in possible_extras.get(whl, [])
     ])
     for whl in whls
